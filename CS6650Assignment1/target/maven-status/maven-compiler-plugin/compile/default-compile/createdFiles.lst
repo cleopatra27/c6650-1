@@ -1,0 +1,8 @@
+org/example/Consumer.class
+org/example/ConnectionService.class
+org/example/CreateSkiers.class
+org/example/SkierProducer.class
+org/example/SkierBean.class
+org/example/CreateSkiersBean.class
+org/example/Processor.class
+org/example/StartThreads.class
