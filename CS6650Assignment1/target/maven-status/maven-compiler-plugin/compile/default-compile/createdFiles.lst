@@ -4,5 +4,6 @@ org/example/CreateSkiers.class
 org/example/SkierProducer.class
 org/example/SkierBean.class
 org/example/CreateSkiersBean.class
+org/example/MultiHttpClientConnThread.class
 org/example/Processor.class
 org/example/StartThreads.class

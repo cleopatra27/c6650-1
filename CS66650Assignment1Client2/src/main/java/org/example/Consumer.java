@@ -1,34 +1,42 @@
 package org.example;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CountDownLatch;
 
-public class Consumer implements Callable<Integer> {
+public class Consumer implements Runnable {
 
     private final BlockingQueue<SkierBean> SkierQueue;
-    private final List<String[]> record = new ArrayList<>();
-    public Consumer(BlockingQueue<SkierBean> skierQueue) {
+    private Queue<String[]> record = new ConcurrentLinkedQueue<>();
+    private String baseURL;
+    private CountDownLatch completed;
+    private  ConnectionService connectionService;
+    public Consumer(BlockingQueue<SkierBean> skierQueue, String baseURL, CountDownLatch completed) {
         this.SkierQueue = skierQueue;
+        this.baseURL = baseURL;
+        this.completed = completed;
+        this.connectionService = new ConnectionService();
     }
 
 
     @Override
-    public Integer call() throws Exception {
-        consume();
-        return 0;
+    public void run() {
+        try {
+            consume();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public int send(SkierBean skierBean) {
-        return new ConnectionService().connect(
-                "https://webhook.site/7762acd9-4201-4fc9-bd4a-0eee5d56e134",
-//                "http://ec2-34-222-77-71.us-west-2.compute.amazonaws.com/CS6650Homework1Server/skiers/"
-//                        + skierBean.getResortID() + "/seasons/"
-//                        + skierBean.getSeasonID() + "/days/"
-//                        + skierBean.getDayID() + "/skiers/"
-//                        + skierBean.getSkierID() + "",
+        return connectionService.connect(
+                this.baseURL+"/skiers/"
+                        + skierBean.getResortID() + "/seasons/"
+                        + skierBean.getSeasonID() + "/days/"
+                        + skierBean.getDayID() + "/skiers/"
+                        + skierBean.getSkierID() + "",
                 null,
                 null,
                 new CreateSkiersBean(skierBean.getTime(), skierBean.getLiftID()).toString(),
@@ -45,12 +53,14 @@ public class Consumer implements Callable<Integer> {
         int response = send(skierBean);
 
         //if response is not 200, send to retry
-        if (response != 200) {
+        if (response != 200 ) {
             retry(skierBean);
         }
 
         //when the HTTP response is received, take another timestamp
         CSVGenerate(start, System.currentTimeMillis(), "POST", response);
+
+        this.completed.countDown();
     }
 
     public void retry(SkierBean skierBean) {
@@ -71,7 +81,7 @@ public class Consumer implements Callable<Integer> {
         return end - start;
     }
 
-    public List<String[]> getRecord() {
+    public Queue<String[]> getRecord() {
         return record;
     }
 }

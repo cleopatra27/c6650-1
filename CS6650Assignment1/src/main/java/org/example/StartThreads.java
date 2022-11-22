@@ -1,5 +1,8 @@
 package org.example;
 
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+
 public class StartThreads extends Thread
 {
     private int runCount;
@@ -8,10 +11,11 @@ public class StartThreads extends Thread
         this.runCount = runCount;
     }
 
-    public void run(Consumer consumer) throws InterruptedException {
+    public void run(Consumer consumer) throws InterruptedException, IOException {
         for (int i = 0; i < runCount; i++) {
+            System.out.println("go -->");
             consumer.consume();
         }
-
     }
+
 }

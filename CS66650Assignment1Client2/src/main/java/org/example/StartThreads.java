@@ -10,6 +10,7 @@ public class StartThreads extends Thread
 
     public void run(Consumer consumer) throws InterruptedException {
         for (int i = 0; i < runCount; i++) {
+            System.out.println("go -->");
             consumer.consume();
         }
     }

@@ -1,16 +1,12 @@
 package org.example;
 
 import org.apache.commons.lang3.ArrayUtils;
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.*;
 
 public class Processor {
 
-    public  void process(int skierCount, int startThreadCount, int runCount) throws Exception {
+    public  void process(int skierCount, int startThreadCount, int runCount, String baseURL) throws Exception {
         //initialize variables
         BlockingQueue<SkierBean> SkierQueue = new LinkedBlockingDeque<>(skierCount);
 
@@ -21,57 +17,38 @@ public class Processor {
 
         //phase 2
         //run the start threads
-        Consumer consumer = new Consumer(SkierQueue);
-        CountDownLatch completed = new CountDownLatch(runCount);
-        for (int i = 0; i < startThreadCount; i++) {
-            StartThreads t1=new StartThreads(runCount);
-            t1.run(consumer);
-            completed.countDown();
-        }
-        completed.await();
+        CountDownLatch completed = new CountDownLatch(skierCount);
+        Consumer consumer = new Consumer(SkierQueue, baseURL, completed);
+        Phase phase = new Phase(consumer, completed, startThreadCount, runCount);
+        phase.start();
 
 
         //phase 3
         //run more threads to complete POSTs
-        CountDownLatch completedNext = new CountDownLatch((skierCount - SkierQueue.remainingCapacity()));
-        while(SkierQueue.remainingCapacity() < skierCount){
-            new Thread(() ->
-            {
-                try {
-                    consumer.consume();
-                    completedNext.countDown();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }).start();
-        }
-        completedNext.await();
+        Phase phase2 = new Phase(consumer, completed, 200, 840);
+        phase2.start();
+
+        phase.waitForPhaseFinish();
+        phase2.waitForPhaseFinish();
 
         //all done
-       // writeToFile(consumer.getRecord());
+        writeToFile(consumer.getRecord());
         performance(consumer.getRecord());
     }
 
-    private Runnable writeToFile(List<String[]> fileData) throws Exception {
-        createDir("src/main/resources/output");
+    private Runnable writeToFile(Queue<String[]> fileData) throws Exception {
         //header
-        String[] headerRecord = {"start time", "request type", "latency", "response code"};
+        String[] headerRecord = {"start time", "end time", "request type", "latency", "response code"};
 
         //remove end time
         fileData.forEach(data -> ArrayUtils.remove(data, 1));
 
         new CSVWriteHelper("src/main/resources/output.csv")
-                .csvWriterAll(fileData, headerRecord);
+                .csvWriterAll(fileData.stream().toList(), headerRecord);
         return null;
     }
 
-    private void perfodrmance(List<String[]> fileData){
-
-        fileData.stream().forEach(data -> {
-            Long.parseLong(data[1]);
-        });
-    }
-    private void performance(List<String[]> fileData){
+    private void performance(Queue<String[]> fileData){
         System.out.println("************************ PERFORMANCE LOG START *************************");
 
         if (fileData == null || fileData.isEmpty()) {
@@ -137,13 +114,6 @@ public class Processor {
         System.out.println("************************ PERFORMANCE LOG END *************************");
     }
 
-//    public static void main(String[] args) {
-//        List<Long> nList = Arrays.asList(new Long[]{5L, 9L, 11L, 9L, 7L});
-//
-//        System.out.println(getMedian(nList.size(), nList));
-//        nList = Arrays.asList(new Long[]{ 2L, 5L, 1L, 4L, 2l, 7L});
-//        System.out.println(getMedian(nList.size(), nList));
-//    }
     private static Double getMedian(int size, List<Long> nList) {
         //order the list
         Collections.sort(nList);
@@ -172,13 +142,4 @@ public class Processor {
         return median;
     }
 
-    private void createDir(String newDirPath) {
-        File dir = new File(newDirPath);
-        if(dir.mkdir()) {
-            System.out.println("Directory created");
-        }
-        else {
-            System.out.println("Already exists. Directory not created");
-        }
-    }
 }
